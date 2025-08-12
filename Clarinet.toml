@@ -1,0 +1,10 @@
+--- FILE: Clarinet.toml
+name = "basic-staking"
+version = "0.1.0"
+
+[dependencies]
+# none for this minimal project
+
+[[contracts]]
+name = "staking"
+path = "contracts/staking.clar"
