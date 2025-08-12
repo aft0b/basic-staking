@@ -1,23 +1,40 @@
---- FILE: README.md
-# API for On-chain GPA – Integration for other apps
+;; Basic Staking Platform (staking.clar)
+;; Minimal staking contract with two public functions: stake and withdraw
 
-## Project: Basic Staking Platform (Clarity)
+(define-constant err-invalid-amount (err u100))
+(define-constant err-insufficient-stake (err u101))
 
-### Project title
-API for On-chain GPA – Integration for other apps
+(define-map stakes principal uint)
+(define-data-var total-staked uint u0)
 
-### Project Description
-A minimal Clarity smart contract that implements a basic staking platform. Users can stake STX to the contract and withdraw their staked balance. The contract intentionally exposes just two public functions to keep the logic straightforward and easy to integrate into other applications.
+(define-public (stake (amount uint))
+  (begin
+    (asserts! (> amount u0) err-invalid-amount)
+    ;; transfer STX from caller to contract
+    (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
+    (map-set stakes tx-sender (+ (default-to u0 (map-get? stakes tx-sender)) amount))
+    (var-set total-staked (+ (var-get total-staked) amount))
+    (ok true)
+  )
+)
 
-### Project Vision
-Provide a simple, auditable building block for on-chain services that need staking functionality — ideal for education, prototypes, and as a small component in larger on-chain systems (like reward engines, reputation systems, or academic-grade tracking integrations).
+(define-public (withdraw (amount uint))
+  (let ((current-stake (default-to u0 (map-get? stakes tx-sender))))
+    (begin
+      (asserts! (> amount u0) err-invalid-amount)
+      (asserts! (>= current-stake amount) err-insufficient-stake)
+      ;; transfer STX from contract back to caller
+      (try! (stx-transfer? amount (as-contract tx-sender) tx-sender))
+      (map-set stakes tx-sender (- current-stake amount))
+      (var-set total-staked (- (var-get total-staked) amount))
+      (ok true)
+    )
+  )
+)
 
-### Future scope
-- Add reward distribution (time-weighted or fixed APY).
-- Add lock-up periods and penalty logic for early withdrawal.
-- Support staking of SIP-010 tokens (FT) instead of native STX.
-- Add admin controls (pause, emergency withdraw) with proper access control.
-- Add event/logging style patterns (via memo or custom maps) for easier off-chain indexing.
+;; Read-only helpers (optional for frontends)
+(define-read-only (get-stake (user principal))
+  (ok (default-to u0 (map-get? stakes user))))
 
-### Contract Address
-ST000000000000000000002AMW42H
+(define-read-only (get-total-staked)
+  (ok (var-get total-staked))) 
